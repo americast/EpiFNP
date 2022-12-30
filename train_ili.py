@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from optparse import OptionParser
 import os
-
+import pudb
+BREAK_REF_SET = 2
 
 for d in ["model_chkp", "plots", "saves"]:
     if not os.path.exists(d):
@@ -150,6 +151,7 @@ if attn == "trans":
         dim_out=50,
         n_layers=2,
         bidirectional=True,
+        break_ref_set = BREAK_REF_SET
     ).cuda()
 else:
     emb_model = EmbedSeq(
@@ -296,6 +298,24 @@ for ep in range(EPOCHS):
     print(f"Epoch: {ep+1}")
     optimizer.zero_grad()
     x_embeds = emb_model.forward_mask(train_x.transpose(1, 0), train_meta, train_mask)
+    # pu.db
+    if BREAK_REF_SET > 1:
+        divisions = full_x.shape[1]//BREAK_REF_SET
+        full_x_here = torch.zeros(full_x.shape[0]*BREAK_REF_SET, full_x.shape[1]//BREAK_REF_SET, full_x.shape[2]).cuda()
+        full_meta_here = torch.zeros(full_meta.shape[0]*BREAK_REF_SET, full_meta.shape[1]).cuda()
+        full_y_here = torch.zeros(full_y.shape[0]*BREAK_REF_SET).cuda()
+        for i in range(full_x.shape[0]):
+            for k in range(BREAK_REF_SET - 1):
+                # pu.db
+                full_x_here[BREAK_REF_SET*i+k,:,:] = full_x[i, :divisions, :]
+                full_meta_here[(BREAK_REF_SET*i)+k, :] = full_meta[i]
+                full_y_here[(BREAK_REF_SET*i)+k] = full_x[i, divisions, 0]
+            k = BREAK_REF_SET - 1
+            full_x_here[BREAK_REF_SET*i+k,:,:] = full_x[i, divisions + 1:, :]
+            full_meta_here[(BREAK_REF_SET*i)+k, :] = full_meta[i]
+            full_y_here[(BREAK_REF_SET*i)+k] = full_y[i]
+                
+
     full_embeds = emb_model_full(full_x.transpose(1, 0), full_meta)
     loss, yp, _ = fnp_model.forward(full_embeds, full_y, x_embeds, train_y)
     loss.backward()

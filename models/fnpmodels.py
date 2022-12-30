@@ -13,7 +13,7 @@ from models.utils import (
     one_hot,
 )
 from torch.distributions import Categorical
-
+import pudb
 
 class TransformerAttn(nn.Module):
     """
@@ -139,6 +139,7 @@ class EmbedAttenSeq(nn.Module):
         bidirectional: bool = False,
         attn=TransformerAttn,
         dropout=0.0,
+        break_ref_set = 1
     ) -> None:
         """
         param dim_seq_in: Dimensionality of input vector (no. of age groups)
@@ -153,6 +154,7 @@ class EmbedAttenSeq(nn.Module):
         self.rnn_out = rnn_out
         self.dim_out = dim_out
         self.bidirectional = bidirectional
+        self.break_ref_set = break_ref_set
 
         self.rnn = nn.GRU(
             input_size=self.dim_seq_in,
@@ -181,7 +183,31 @@ class EmbedAttenSeq(nn.Module):
         return out
 
     def forward(self, seqs, metadata):
+        # if self.break_ref_set > 1:
+        #     # pu.db
+        #     divisions = seqs.shape[0]//self.break_ref_set
+        #     seqs_here = torch.zeros(seqs.shape[0]//self.break_ref_set, seqs.shape[1]*self.break_ref_set, seqs.shape[2]).cuda()
+        #     metadata_here = torch.zeros(metadata.shape[0]*self.break_ref_set, metadata.shape[1]).cuda()
+        #     for i in range(seqs.shape[1]):
+        #         for k in range(self.break_ref_set):
+        #             seqs_here[:,self.break_ref_set*i+k,:] = seqs[:divisions, i, :]
+        #             metadata_here[(self.break_ref_set*i)+k, :] = metadata[i]
+        #     # outs = []
+        #     # for i in range(self.break_ref_set):
+        #     #     if i == self.break_ref_set - 1:
+        #     #         seqs_here = seqs[:, i * divisions:, :]
+        #     #         metadata_here = metadata[i * divisions:, :]
+        #     #     else:
+        #     #         seqs_here = seqs[:, i * divisions: (i + 1) * divisions, :]
+        #     #         metadata_here = metadata[i * divisions:(i + 1) * divisions, :]
+        #         # Take last output from GRU
+        #     latent_seqs = self.rnn(seqs_here)[0]
+        #     latent_seqs = self.attn_layer(latent_seqs).sum(0)
+        #     out = self.out_layer(torch.cat([latent_seqs, metadata_here], dim=1))
+        #     return out
+        # else:
         # Take last output from GRU
+        # pu.db
         latent_seqs = self.rnn(seqs)[0]
         latent_seqs = self.attn_layer(latent_seqs).sum(0)
         out = self.out_layer(torch.cat([latent_seqs, metadata], dim=1))
